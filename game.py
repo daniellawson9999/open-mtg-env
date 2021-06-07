@@ -32,14 +32,34 @@ class Game:
         # two counters to help keep track of damage assignment - per attacker - per blocker, respectively
         self.attacker_counter = 0
         self.blocker_counter = 0
+        
+
+    def get_board_string(self, colors=["Gold", "Silver"]):
+        current_player = self.player_with_priority
+        other_player = self.players[1 - current_player.index]
+        board_string = f'''
+        Current-player: {colors[current_player.index]}
+        life: {self.curent_player.life}
+        hand: {self.current_player.hand}
+
+        '''
 
     def update_damage_targets(self):
         self.damage_targets = []
         self.damage_targets = self.get_battlefield_creatures() + self.players
 
+    def damage_target_strings(self):
+        strings = []
+        creatures = self.get_battlefield_creatures()
+        for creature in creatures:
+            strings.append(str(creature))
+        strings.extend(self.player_target_to_string())
+        return strings
+
     def get_moves(self):
         player = self.player_with_priority
-        return self.get_legal_moves(player)
+        move_indexes, move_strings = self.get_legal_moves(player)
+        return move_indexes
 
     def get_results(self, player_index):
         player = self.players[player_index]
@@ -131,7 +151,7 @@ class Game:
             blocking_player = self.nonactive_player
             blocking_player.has_blocked = True
             eligible_blockers = blocking_player.get_eligible_blockers(self)
-            if len(eligible_blockers) is 0:
+            if len(eligible_blockers) == 0:
                 return -1
             all_blocking_assignments = list(range(np.power(len(self.attackers) + 1, len(eligible_blockers))))
             reshaped_assignments = np.reshape(all_blocking_assignments,
@@ -145,8 +165,8 @@ class Game:
         # for each attacker that’s become blocked, the active player announces the damage assignment order
         if self.current_phase_index == Phases.DECLARE_BLOCKERS_STEP_509_2:
             for i in range(len(self.attackers)):
-                if len(self.attackers[i].is_blocked_by) is not 0:
-                    if len(self.attackers[i].damage_assignment_order) is 0:
+                if len(self.attackers[i].is_blocked_by) != 0:
+                    if len(self.attackers[i].damage_assignment_order) == 0:
                         self.attackers[i].set_damage_assignment_order(move)
                         return 1
             return -1
@@ -188,101 +208,146 @@ class Game:
                 creatures.append(self.battlefield[i])
         return creatures
 
+    def get_card_names_from_indices(self, indices):
+        card_names = []
+        for index in indices:
+            card_names.append(str(self.battlefield[index]))
+        return card_names
+
+    def player_target_to_string(self):
+        actions = [0, 1]
+        active_player = self.player_with_priority.index
+        actions_str = [None] * 2
+        if active_player == 0:
+            actions_str[0] = "Self"
+            actions_str[1] = "Opponent"
+        else: 
+            actions_str[1] = "Opponent"
+            actions_str[0] = "Self"
+        return actions_str
+
+    # this function will be called within get_legal_moves
+    # to convert a string/language encoded move to a numerical index-based move
+    def string_move_to_numerical(traditional_moves, string_moves, string_move):
+        '''
+            Special cases:
+                get_activated_abilities used by: 
+                    playable_indices = player.get_playable_cards(self)
+                    playable_strings = player.get_playable_card_strings(self)
+                    _, ability_indices = player.get_activated_abilities(self)
+                    non_passing_moves = list(range(len(playable_indices) + sum(ability_indices)))
+                numeric rep = [ 0,1,2,3           4,5,6,7,8]
+                               ^- playing a card   ^-activating an ability (maybe multiple per card in the future)
+                string rep = ["Forest","Island",....             ability_1_Forest, ability_1_Island (tap_Island) ]
+                map: ability_1_Forest -> 4
+        '''
+        pass
+
     # NOTE: this function might have become too crowded, consider refactoring
     def get_legal_moves(self, player):
         if self.is_over():
-            return []
+            return [], ["Pass"]
         if player.generic_debt > 0:
             mp_as_list = player.get_mp_as_list()
-            return list(itertools.combinations(mp_as_list, player.generic_debt))
+            return list(itertools.combinations(mp_as_list, player.generic_debt)), None
         if player.casting_spell != "":
             # logging.debug("Returning a spell move now")
             if player.casting_spell == "Vengeance":
-                return self.get_tapped_creature_indices()
+                indices = self.get_tapped_creature_indices()
+                return indices, self.get_card_names_from_indices(indices)
             if player.casting_spell == "Stone Rain":
-                return self.get_land_indices()
-            if player.casting_spell == "Index":
-                return list(itertools.permutations(list(range(min(5, len(player.deck))))))
+                indices = self.get_land_indices()
+                return indices, self.get_card_names_from_indices(indices)
+            if player.casting_spell == "Index": # MAYBE REMOVE FOR SIMPLICITY
+                return list(itertools.permutations(list(range(min(5, len(player.deck)))))), None
             if player.casting_spell == "Lava Axe":
-                return [0, 1]
+                return [0, 1], self.player_target_to_string()
             if player.casting_spell == "Volcanic Hammer":
                 self.update_damage_targets()
-                return list(range(len(self.damage_targets)))
+                return list(range(len(self.damage_targets))), self.damage_target_strings()
             if player.casting_spell == "Sacred Nectar":
-                return ["Resolve Spell"]
+                return ["Resolve Spell"], ["Resolve Spell"]
             if player.casting_spell == "Rampant Growth":
                 choices = ["Refuse"]
                 basic_land_types = ["Plains", "Island", "Swamp", "Mountain", "Forest"]
                 for land_type in basic_land_types:
                     if player.find_land_in_library(land_type) >= 0:
                         choices.append(land_type)
-                return choices
-            return ["Pass"]
+                return choices, choices
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.BEGINNING_PHASE:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.UNTAP_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.UPKEEP_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.DRAW_STEP:
-            return ["Pass"]
-        if self.current_phase_index == Phases.MAIN_PHASE_PRE_COMBAT:
+            return ["Pass"], ["Pass"]
+        if self.current_phase_index == Phases.MAIN_PHASE_PRE_COMBAT: #TODO
             playable_indices = player.get_playable_cards(self)
+            playable_strings = player.get_playable_card_strings(self)
             _, ability_indices = player.get_activated_abilities(self)
+            ability_strings = player.get_ability_strings(self)
             non_passing_moves = list(range(len(playable_indices) + sum(ability_indices)))
             non_passing_moves.append("Pass")
-            return non_passing_moves  # append the 'pass' move action and return
+            
+            # combine strings
+            playable_strings.extend(ability_strings)
+            playable_strings.append("Pass")
+            # return numerical and string representation
+            return non_passing_moves,playable_strings  # append the 'pass' move action and return
         if self.current_phase_index == Phases.COMBAT_PHASE:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.BEGINNING_OF_COMBAT_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.DECLARE_ATTACKERS_STEP:
             attacking_player = self.active_player
             if attacking_player.has_attacked or player is not attacking_player:
-                return ["Pass"]
+                return ["Pass"], ["Pass"]
             # next two lines get the power set of attackers
             eligible_attackers = attacking_player.get_eligible_attackers(self)
             xs = list(range(len(eligible_attackers)))
+            attacker_combinations = list(itertools.chain.from_iterable(itertools.combinations(xs, n) for n in range(len(xs) + 1)))
             return list(range(
-                len(list(itertools.chain.from_iterable(itertools.combinations(xs, n) for n in range(len(xs) + 1))))))
+                len(attacker_combinations))), None
         if self.current_phase_index == Phases.DECLARE_BLOCKERS_STEP:
             blocking_player = self.nonactive_player
             if blocking_player.has_blocked or player is not blocking_player:
-                return ["Pass"]
+                return ["Pass"], ["Pass"]
             eligible_blockers = blocking_player.get_eligible_blockers(self)
-            return list(range(np.power(len(self.attackers) + 1, len(eligible_blockers))))
+            return list(range(np.power(len(self.attackers) + 1, len(eligible_blockers)))), None
         # for each attacker that’s become blocked, the active player announces the damage assignment order
         if self.current_phase_index == Phases.DECLARE_BLOCKERS_STEP_509_2:
             for i in range(len(self.attackers)):
-                if len(self.attackers[i].is_blocked_by) is not 0:
-                    if len(self.attackers[i].damage_assignment_order) is 0:
-                        return list(range(math.factorial(len(self.attackers[i].is_blocked_by))))
-            return ["Pass"]
+                if len(self.attackers[i].is_blocked_by) != 0:
+                    if len(self.attackers[i].damage_assignment_order) == 0:
+                        return list(range(math.factorial(len(self.attackers[i].is_blocked_by)))), None
+            return ["Pass"], ["Pass"]
 
         if self.current_phase_index == Phases.COMBAT_DAMAGE_STEP_510_1c:
-            if len(self.attackers) is 0 or self.attacker_counter >= len(self.attackers):
-                return ["Pass"]
+            if len(self.attackers) == 0 or self.attacker_counter >= len(self.attackers):
+                return ["Pass"], ["Pass"]
             return self.get_possible_damage_assignments(player, self.attackers[self.attacker_counter],
-                                                        self.blocker_counter)
+                                                        self.blocker_counter), None
         if self.current_phase_index == Phases.COMBAT_DAMAGE_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.END_OF_COMBAT_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.MAIN_PHASE_POST_COMBAT:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.ENDING_PHASE:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.END_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.CLEANUP_STEP:
-            return ["Pass"]
+            return ["Pass"], ["Pass"]
 
         logging.debug(self.current_phase_index)
         logging.debug("omg we should not have ended up here")
 
     @staticmethod
     def get_possible_damage_assignments(player, attacker, index):
-        if len(attacker.damage_assignment_order) is 0:
+        if len(attacker.damage_assignment_order) == 0:
             return ["Pass"]
         blocker_i = attacker.damage_assignment_order[index]
         remaining_health = blocker_i.toughness - blocker_i.damage_taken
@@ -378,3 +443,13 @@ class Game:
                 permanent.is_blocked_by = []
                 permanent.damage_assignment_order = []
                 permanent.damage_assignment = []
+
+# One-use "action unroller" to take a action such as declaring attackers and change it into a multi-step process
+# that is compatible with auto-regressive models
+
+class ActionUnroller:
+    def __init__(self, game):
+        self.game = game
+    
+
+# need to way to "roll" a predicted unrolled sequence to actions

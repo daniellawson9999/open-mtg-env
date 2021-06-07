@@ -8,7 +8,7 @@ from cards import Card, Land, Creature, Sorcery
 
 
 class Player:
-    def __init__(self, deck):
+    def __init__(self, deck, name="None"):
         self.index = None
         self.deck = deck
         self.life = 20
@@ -22,6 +22,7 @@ class Player:
         self.passed_priority = True
         self.casting_spell = ""
         self.manapool = {'White': 0, 'Blue': 0, 'Black': 0, 'Red': 0, 'Green': 0, 'Colorless': 0}
+        self.name = name
 
     def get_mp_as_list(self):
         mp_list = []
@@ -39,7 +40,7 @@ class Player:
             self.has_lost = True
 
     def determine_move(self, method, game):
-        legal_moves = game.get_legal_moves(self)
+        legal_moves, move_strings = game.get_legal_moves(self)
         if len(legal_moves) == 1:
             return legal_moves[0]
         if method == "random":
@@ -92,6 +93,13 @@ class Player:
             else:
                 assert False
         return playable_indices
+    
+    def get_playable_card_strings(self, game):
+        card_names = []
+        playable_indices = self.get_playable_cards(game)
+        for index in playable_indices:
+            card_names.append(str(self.hand[index]))
+        return card_names
 
     def find_land_in_library(self, land_type):
         for i in range(len(self.deck)):
@@ -145,6 +153,15 @@ class Player:
                     callable_permanents.append(permanent)
                     number_of_abilities.append(len(permanent.tapped_abilities))
         return callable_permanents, number_of_abilities
+
+    def get_ability_strings(self, game):
+        strings = []
+        for permanent in game.battlefield:
+            if permanent.owner.index is self.index:
+                if len(permanent.tapped_abilities) > 0 and not permanent.is_tapped:
+                    for i in range(len(permanent.tapped_abilities)):
+                        strings.append(f'tapped_ability_{i}_{str(permanent)}')
+        return strings
 
     def get_eligible_attackers(self, game):
         eligible_attackers = []
