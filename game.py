@@ -34,9 +34,17 @@ class Game:
         self.blocker_counter = 0
         
 
-    def get_board_string(self, colors=["Gold", "Silver"]):
+    def get_board_string(self, colors=["Gold", "Silver"], additional_attacker_names=None):
         current_player = self.player_with_priority
         other_player = self.players[1 - current_player.index]
+
+        # append additional attacker info 
+        # used with AttackerUnrollers for returning updated state information
+        attacker_names = [attacker.name for attacker in self.attackers]
+        if additional_attacker_names != None:
+            attacker_names.extend(additional_attacker_names)
+        attacker_string = ' '.join(attacker_names)
+
         board_string = f'''
         Current-player: {colors[current_player.index]}
         life: {self.curent_player.life}
@@ -72,7 +80,7 @@ class Game:
         if opponent.has_lost:
             return 1.0
 
-    def make_move(self, move, verbose=False):
+    def make_move(self, move, verbose=False, attackers_passed=False, blockers_passed=False, assignments_passed=False):
         player = self.player_with_priority
         self.player_just_moved = player
         if player.generic_debt > 0:
@@ -448,8 +456,63 @@ class Game:
 # that is compatible with auto-regressive models
 
 class ActionUnroller:
-    def __init__(self, game):
+    def __init__(self, game, ):
         self.game = game
-    
+        self.combinations = None
+        self.done = False
+
+
+        if game.current_phase_index == Phases.DECLARE_ATTACKERS_STEP:
+            eligible_attackers =  eligible_attackers = game.active_player.get_eligible_attackers(game)
+        elif game.current_phase_index == Phases.DECLARE_BLOCKERS_STEP:
+            pass
+        # damage assignment ordering
+        elif game.current_phase_index == Phases.DECLARE_BLOCKERS_STEP_509_2:
+            pass
+        else:
+            logging.debug(self.current_phase_index)
+            logging.debug("oInvalid Use of Action Unroller")
+    def get_legal_moves():
+        pass
+    def done():
+        pass
+    def register_move(self, move):
+        pass
+
+class AttackerActionUnroller(ActionUnroller):
+    def __init__(self,game):
+        super().__init__(game)
+        # This is also computed previously, maybe re-factor to reduce redundancy
+        eligible_attackers = game.active_player.get_eligible_attackers(game)
+        self.attacker_names = [attacker.name for attacker in eligible_attackers]
+        self.legal_moves = self.attacker_names.copy()
+        self.legal_moves.append("Pass")
+        self.selected_attackers = []
+
+    def done(self):
+        return self.done
+
+    def get_legal_moves(self):
+        assert (not self.done), "Called get_move when done"
+        return self.legal_moves
+
+    # returns state after registering the move 
+    def register_move(self, move):
+        assert (move in self.legal_moves), "Invalid move"
+        if move == "Pass":
+            self.done = True
+        else:
+            self.selected_attackers.append(move)
+        self.legal_moves.remove(move)
+        return self.game.get_board_string(additional_attacker_names=self.selected_attackers)
+
+    # officially applies the "registered" moves to the game
+    # should be called after "done" unrolling
+    def make_move(self):
+        assert (self.done), "Unrolling not complete"
+        attacker_cards = []
+
+        move = None
+
 
 # need to way to "roll" a predicted unrolled sequence to actions
