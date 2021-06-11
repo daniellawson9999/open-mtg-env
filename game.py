@@ -99,7 +99,7 @@ class Game:
         # remember, this could be broken down into to different compoments
         # "missing" parts of game state suck as summoning sickness, graveyards, etc
 
-        
+
         board_string = f'''
         player-color$ {colors[current_player.index]}$
         life$ {current_player.life}$
@@ -268,15 +268,34 @@ class Game:
             eligible_blockers = blocking_player.get_eligible_blockers(self)
             if len(eligible_blockers) == 0:
                 return -1
-            all_blocking_assignments = list(range(np.power(len(self.attackers) + 1, len(eligible_blockers))))
-            reshaped_assignments = np.reshape(all_blocking_assignments,
-                                              ([len(self.attackers) + 1] * len(eligible_blockers)))
-            blocking_assignments = np.argwhere(reshaped_assignments == move)[0]
-            for i in range(len(blocking_assignments)):
-                if blocking_assignments[i] != len(self.attackers):
-                    self.attackers[blocking_assignments[i]].is_blocked_by.append(eligible_blockers[i])
-                    eligible_blockers[i].is_blocking.append(self.attackers[blocking_assignments[i]])
-                    self.blockers.append(eligible_blockers[i])
+
+            if blockers_passed:
+                # build dictionary for mapping passed strs to class
+                str_to_class = {}
+                for blocker in eligible_blockers:
+                    str_to_class[blocker.name_id] = blocker
+                for attacker in self.attackers:
+                    str_to_class[attacker.name_id] = attacker
+                # apply blocking assignments
+                for attacker_name_id, blocker_name_id_list in enumerate(move):
+                    attacker = str_to_class[attacker_name_id]
+                    for blocker_name_id in blocker_name_id_list:
+                        blocker = str_to_class[blocker_name_id]
+                        # append blockers/attackers 
+                        attacker.is_blocked_by.append(blocker)
+                        blocker.is_blocking.append(attacker)
+                        self.blockers.append(blocker)
+
+            else:
+                all_blocking_assignments = list(range(np.power(len(self.attackers) + 1, len(eligible_blockers))))
+                reshaped_assignments = np.reshape(all_blocking_assignments,
+                                                    ([len(self.attackers) + 1] * len(eligible_blockers)))
+                blocking_assignments = np.argwhere(reshaped_assignments == move)[0]
+                for i in range(len(blocking_assignments)):
+                    if blocking_assignments[i] != len(self.attackers):
+                        self.attackers[blocking_assignments[i]].is_blocked_by.append(eligible_blockers[i])
+                        eligible_blockers[i].is_blocking.append(self.attackers[blocking_assignments[i]])
+                        self.blockers.append(eligible_blockers[i])
         # for each attacker that’s become blocked, the active player announces the damage assignment order
         if self.current_phase_index == Phases.DECLARE_BLOCKERS_STEP_509_2:
             for i in range(len(self.attackers)):
@@ -367,7 +386,7 @@ class Game:
             return list(itertools.combinations(mp_as_list, player.generic_debt)), None # TODO
         if player.casting_spell != "":
             # logging.debug("Returning a spell move now")
-            if player.casting_spell == "Vengeance":
+            if player.casting_spell == "Vengeance": # TODO ADD name_id
                 indices = self.get_tapped_creature_indices()
                 return indices, self.get_card_names_from_indices(indices)
             if player.casting_spell == "Stone Rain":
@@ -476,7 +495,10 @@ class Game:
         if attacker.damage_to_assign < remaining_health or index == len(attacker.damage_assignment_order) - 1:
             return list(range(attacker.damage_to_assign, attacker.damage_to_assign + 1))
         else:
-            return list(range(remaining_health, attacker.damage_to_assign + 1))
+            # modify this line, this is incorrect
+            # the attacker does not get to chose how much damage to assign to each after ordering
+            #return list(range(remaining_health, attacker.damage_to_assign + 1))
+            return [remaining_health]
 
     def start_game(self):
         self.active_player.passed_priority = False
@@ -688,7 +710,8 @@ class BlockerActionUnroller(ActionUnroller):
     def make_move(self):
         assert (self.done), "Unrolling not complete"
         
-
-        self.game.make_move(move=, blockers_passed=True)
-        # check for done
+        self.game.make_move(move=self.block_assignment_dict, blockers_passed=True)
         return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict))
+
+
+# TODO, damage assignment unroller
