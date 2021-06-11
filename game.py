@@ -3,6 +3,7 @@ import random
 import logging
 import numpy as np
 import itertools
+from abc import ABC, abstractmethod
 
 from phases import Phases
 from cards import Card, Sorcery, Creature, Land
@@ -34,23 +35,122 @@ class Game:
         self.blocker_counter = 0
         
 
-    def get_board_string(self, colors=["Gold", "Silver"], additional_attacker_names=None):
+    def get_board_string(self, colors=["Gold", "Silver"], additional_attacker_names=None, additional_block_assignments=None):
         current_player = self.player_with_priority
         other_player = self.players[1 - current_player.index]
 
         # append additional attacker info 
         # used with AttackerUnrollers for returning updated state information
-        attacker_names = [attacker.name for attacker in self.attackers]
+        attacker_names = [attacker.name_id for attacker in self.attackers]
         if additional_attacker_names != None:
-            attacker_names.extend(additional_attacker_names)
-        attacker_string = ' '.join(attacker_names)
+            for attacker_name in additional_attacker_names:
+                if attacker_name not in attacker_names:
+                    attacker_names.append(attacker_name)
 
+        attacker_block_dict = {}
+        # build blocking dictionary
+        # loop over attackers
+        for attacker in self.attackers:
+            attacker_block_dict[attacker.name_id] = []
+            # loop over blocking info stored in game state
+            for blocker in attacker.is_blocked_by:
+                attacker_block_dict[attacker.name_id].append(blocker.name_id)
+            # add additional passed info
+            if attaker.name_id in additional_block_assignments:
+                for blocker_name in additional_block_assignments[attacker.name_id]:
+                    if blocker_name not in attacker_block_dict[attacker.name_id]:
+                        attacker_block_dict[attacker.name_id].append(blocker_name)
+            if len(attacker_block_dict[attacker.name_id]) == 0:
+                attacker_block_dict[attacker.name_id].append("None")
+
+        # convert attacker_block_dict to str
+        
+        attacker_block_str = []
+        for attacker_name, blocker_names in enumerate(attacker_block_dict):
+            if len(blocker_names == 0):
+                blocker_names = ["None"]
+            attacker_str = f'attacker: ${attacker_name}$ blocked by: ${'$'.join(blocker_names)}$'
+            attacker_block_str.append(attacker_str)
+        attacker_block_str = '\n'.join(attacker_block_str)
+        if len(attacker_block_str) == 0:
+            attacker_block_str = "None"
+
+        #attacker_string = '$'.join(attacker_names)
+
+        # get land info
+        lands = self.get_lands()
+        lands_current = self.filter_cards_player(lands, current_player)
+        lands_other = self.filter_cards_player(lands, other_player)
+        lands_current_untapped = self.filter_cards_tapped(lands_current, tapped=False)
+        lands_current_tapped = self.filter_cards_tapped(lands_current, tapped=True)
+        lands_other_untapped = self.filter_cards_tapped(lands_other, tapped=False)
+        lands_other_tapped = self.filter_cards_tapped(lands_other, tapped=True)
+
+        # get general creature info
+        creatures = self.get_creatures()
+        creatures_current = self.filter_cards_player(creatures, current_player)
+        creatures_other = self.filter_cards_player(creatures, other_player)
+        creatures_current_untapped = self.filter_cards_tapped(creatures_current, tapped=False)
+        creatures_current_tapped = self.filter_cards_tapped(creatures_current, tapped=True)
+        creatures_other_untapped = self.filter_cards_tapped(creatures_other, tapped=False)
+        creatures_other_tapped = self.filter_cards_tapped(creatures_other, tapped=True)
+
+
+        # remember, this could be broken down into to different compoments
+        # "missing" parts of game state suck as summoning sickness, graveyards, etc
+
+        
         board_string = f'''
-        Current-player: {colors[current_player.index]}
-        life: {self.curent_player.life}
-        hand: {self.current_player.hand}
-
+        player-color$ {colors[current_player.index]}$
+        life$ {current_player.life}$
+        opponent-life$ {other_player.life}$
+        phase$ {self.current_phase_index}$
+        hand$ {self.cards_to_string(current_player.hand)}$
+        opponent-cards$ {len(other_player.hand)}
+        self-lands-untapped$ {self.cards_to_string(lands_current_untapped)}$
+        self-lands-tapped$ {self.cards_to_string(lands_current_tapped)}$
+        opponent-lands-untapped$ {self.cards_to_string(lands_other_untapped)}$
+        opponent-lands-tapped$ {self.cards_to_string(lands_other_tapped)}$
+        self-creatures-untapped$ {self.cards_to_string(creatures_current_untapped)}$
+        self-creatures-tapped$ {self.cards_to_string(creatures_current_tapped)}$
+        opponent-creatures-untapped$ {self.cards_to_string(creatures_other_untapped)}$
+        opponent-creatures-tapped$ {self.cards_to_string(creatures_other_tapped)}$
+        attackers-blockers$ {attacker_block_str}
         '''
+    # maybe add _id
+    def cards_to_string(self,cards):
+        return '$'.join(cards.name)
+
+    def get_lands(self):
+        lands = []
+        for i in range(len(self.battlefield)):
+            permanent = self.battlefield[i]
+            if isinstance(permanent, Land):
+                lands.append(permanent)
+        return lands
+
+    def get_creatures(self):
+        creatures = []
+        for i in range(len(self.battlefield)):
+            permanent = self.battlefield[i]
+            if isinstance(permanent, Creature):
+                creatures.append(permanent)
+        return creatures
+    
+    def filter_cards_player(self, cards, player):
+        new_cards = []
+        for card in cards:
+            if card.owner == player:
+                new_cards.append(land)
+        return new_cards
+
+    def filter_cards_tapped(self, cards, tapped=False):
+        new_cards = []
+        for card in cards:
+            if card.is_tapped == tapped:
+                new_cards.append(card)
+        return new_cards
+
 
     def update_damage_targets(self):
         self.damage_targets = []
@@ -148,10 +248,17 @@ class Game:
             attacking_player = self.active_player
             attacking_player.has_attacked = True
             eligible_attackers = attacking_player.get_eligible_attackers(self)
-            xs = list(range(len(eligible_attackers)))
-            powerset = list(itertools.chain.from_iterable(itertools.combinations(xs, n) for n in range(len(xs) + 1)))
-            element = powerset[move]
-            chosen_attackers = [eligible_attackers[i] for i in element]
+
+            if attackers_passed:
+                # TODO, add verification of move passed
+                chosen_attackers = move
+            else:
+                xs = list(range(len(eligible_attackers)))
+                powerset = list(itertools.chain.from_iterable(itertools.combinations(xs, n) for n in range(len(xs) + 1)))
+                element = powerset[move]
+                chosen_attackers = [eligible_attackers[i] for i in element]
+
+
             self.attackers = chosen_attackers
             for attacker in self.attackers:
                 attacker.is_tapped = True
@@ -227,11 +334,11 @@ class Game:
         active_player = self.player_with_priority.index
         actions_str = [None] * 2
         if active_player == 0:
-            actions_str[0] = "Self"
-            actions_str[1] = "Opponent"
+            actions_str[0] = "self"
+            actions_str[1] = "opponent"
         else: 
-            actions_str[1] = "Opponent"
-            actions_str[0] = "Self"
+            actions_str[1] = "opponent"
+            actions_str[0] = "self"
         return actions_str
 
     # this function will be called within get_legal_moves
@@ -257,7 +364,7 @@ class Game:
             return [], ["Pass"]
         if player.generic_debt > 0:
             mp_as_list = player.get_mp_as_list()
-            return list(itertools.combinations(mp_as_list, player.generic_debt)), None
+            return list(itertools.combinations(mp_as_list, player.generic_debt)), None # TODO
         if player.casting_spell != "":
             # logging.debug("Returning a spell move now")
             if player.casting_spell == "Vengeance":
@@ -266,7 +373,7 @@ class Game:
             if player.casting_spell == "Stone Rain":
                 indices = self.get_land_indices()
                 return indices, self.get_card_names_from_indices(indices)
-            if player.casting_spell == "Index": # MAYBE REMOVE FOR SIMPLICITY
+            if player.casting_spell == "Index": # MAYBE REMOVE FOR SIMPLICITY # TODO
                 return list(itertools.permutations(list(range(min(5, len(player.deck)))))), None
             if player.casting_spell == "Lava Axe":
                 return [0, 1], self.player_target_to_string()
@@ -317,13 +424,20 @@ class Game:
             xs = list(range(len(eligible_attackers)))
             attacker_combinations = list(itertools.chain.from_iterable(itertools.combinations(xs, n) for n in range(len(xs) + 1)))
             return list(range(
-                len(attacker_combinations))), None
+                len(attacker_combinations))), AttackerActionUnroller(self)
         if self.current_phase_index == Phases.DECLARE_BLOCKERS_STEP:
             blocking_player = self.nonactive_player
             if blocking_player.has_blocked or player is not blocking_player:
                 return ["Pass"], ["Pass"]
+            
+            # ActionUnroller if possible blocks
             eligible_blockers = blocking_player.get_eligible_blockers(self)
-            return list(range(np.power(len(self.attackers) + 1, len(eligible_blockers)))), None
+            if len(eligible_blockers) == 0 or len(self.attackers) == 0:
+                alternative_move = ["Pass"]
+            else:
+                alternative_move = BlockerActionUnroller(self)
+
+            return list(range(np.power(len(self.attackers) + 1, len(eligible_blockers)))), alternative_move
         # for each attacker that’s become blocked, the active player announces the damage assignment order
         if self.current_phase_index == Phases.DECLARE_BLOCKERS_STEP_509_2:
             for i in range(len(self.attackers)):
@@ -455,36 +569,31 @@ class Game:
 # One-use "action unroller" to take a action such as declaring attackers and change it into a multi-step process
 # that is compatible with auto-regressive models
 
-class ActionUnroller:
-    def __init__(self, game, ):
+class ActionUnroller(ABC):
+    def __init__(self, game):
+        super().__init__()
         self.game = game
-        self.combinations = None
         self.done = False
 
-
-        if game.current_phase_index == Phases.DECLARE_ATTACKERS_STEP:
-            eligible_attackers =  eligible_attackers = game.active_player.get_eligible_attackers(game)
-        elif game.current_phase_index == Phases.DECLARE_BLOCKERS_STEP:
-            pass
-        # damage assignment ordering
-        elif game.current_phase_index == Phases.DECLARE_BLOCKERS_STEP_509_2:
-            pass
-        else:
-            logging.debug(self.current_phase_index)
-            logging.debug("oInvalid Use of Action Unroller")
+    @abstractmethod
     def get_legal_moves():
         pass
+
+    @abstractmethod
     def done():
         pass
+
+    @abstractmethod
     def register_move(self, move):
         pass
 
+# Maybe redo to manipulate classes instead of strings
 class AttackerActionUnroller(ActionUnroller):
     def __init__(self,game):
         super().__init__(game)
         # This is also computed previously, maybe re-factor to reduce redundancy
-        eligible_attackers = game.active_player.get_eligible_attackers(game)
-        self.attacker_names = [attacker.name for attacker in eligible_attackers]
+        self.eligible_attackers = game.active_player.get_eligible_attackers(game)
+        self.attacker_names = [attacker.name_id for attacker in self.eligible_attackers]
         self.legal_moves = self.attacker_names.copy()
         self.legal_moves.append("Pass")
         self.selected_attackers = []
@@ -511,9 +620,75 @@ class AttackerActionUnroller(ActionUnroller):
     def make_move(self):
         assert (self.done), "Unrolling not complete"
         attacker_cards = []
+        # search through eligible attackers ,
+        # if an eligible attacker is in the selected attackers list, append card class to attacker cards
 
-        move = None
+        for attacker in self.eligible_attackers:
+            if attacker.name_id in self.selected_attackers:
+                attacker_cards.append(attacker)
+                self.selected_attackers.remove(attacker.name_id)
+        self.game.make_move(move=attacker_cards, attackers_passed=True)
+
+# Maybe redo to manipulate classes instead of strings
+class BlockerActionUnroller(ActionUnroller):
+    def __init__(self,game):
+        super().__init__(game)
+        self.blocking_player = self.game.nonactive_player
+        self.eligible_blockers = self.blocking_player.get_eligible_blockers(self.game)
+        self.num_blockers = len(self.eligible_blockers)
+        self.num_attackers = len(self.game.attackers)
+        self.blocker_index = 0
+        assert(self.num_blockers > 0 and self.num_attackers > 0), "BlockerActionUnroller called with zero attackers or blockers"
+        
+        self.block_assignment_dict = {} # key is attacker, value is an array of blockers
+        self.current_legal_moves = None
 
 
-# need to way to "roll" a predicted unrolled sequence to actions
-# test
+    def done(self):
+        return self.done
+
+    def get_legal_moves(self):
+        assert (not self.done), "Called get_move when done"
+        # might want to verify this line ->, refactor
+        moves = ["Pass"]
+        if len(self.blocker_index + 1 > self.num_blockers):
+            pass
+        else:
+            current_blocker = self.eligible_blockers[self.blocker_index]
+            for attacker in self.game.attackers:
+                moves.append(f'{current_blocker.name_id}$block${attacker.name_id}')
+        self.current_legal_moves = moves
+        return moves
+
+    # returns state after registering the move 
+    def register_move(self, move):
+        assert (move in self.current_legal_moves), "Invalid move"
+        
+        # parse move
+        info = move.split('block')
+        # get attacker and blocker names, remove middle $s
+        blocker_name_id = info[0][:-1]
+        attacker_name_id = info[1][1:]
+
+        # add to dictionary
+        if attacker_name_id in self.block_assignment_dict:
+            self.block_assignment_dict[attacker_name_id].append(blocker_name_id)
+        else:
+            self.block_assignment_dict[attacker_name_id] = [blocker_name_id]
+
+        
+        self.blocker_index += 1
+        # check for done
+        if self.blocker_index >= self.num_blockers:
+            self.done = True
+        return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict) # make sure to pass updated blocker info
+
+    # officially applies the "registered" moves to the game
+    # should be called after "done" unrolling
+    def make_move(self):
+        assert (self.done), "Unrolling not complete"
+        
+
+        self.game.make_move(move=, blockers_passed=True)
+        # check for done
+        return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict))

@@ -23,12 +23,12 @@ def get_8ed_core_gold_deck():
     for i in range(7):  # (7):
         decklist.append(cards.Land("Forest", "Basic Land", "Forest", [lambda self: self.owner.add_mana({"Green": 1})]))
     for i in range(2):
-        decklist.append(cards.Creature("Norwood Ranger", "Elf Scout", {'Green': 1}, 1, 2))
+        decklist.append(cards.Creature("Norwood Ranger", "Elf Scout", {'Green': 1}, 1, 2), id=i)
         decklist.append(cards.Sorcery("Lava Axe", "", {'Red': 1, 'Generic': 4}))
-        decklist.append(cards.Creature("Grizzly Bears", "Bear", {'Green': 1, 'Generic': 1}, 2, 2))
-        decklist.append(cards.Creature("Enormous Baloth", "Beast", {'Green': 1, 'Generic': 6}, 7, 7))
-        decklist.append(cards.Creature("Goblin Raider", "Goblin Warrior", {'Red': 1, 'Generic': 1}, 2, 2, True))
-        decklist.append(cards.Creature("Hill Giant", "Giant", {'Red': 1, 'Generic': 3}, 3, 3))
+        decklist.append(cards.Creature("Grizzly Bears", "Bear", {'Green': 1, 'Generic': 1}, 2, 2), id=i)
+        decklist.append(cards.Creature("Enormous Baloth", "Beast", {'Green': 1, 'Generic': 6}, 7, 7), id=i)
+        decklist.append(cards.Creature("Goblin Raider", "Goblin Warrior", {'Red': 1, 'Generic': 1}, 2, 2, True), id=i)
+        decklist.append(cards.Creature("Hill Giant", "Giant", {'Red': 1, 'Generic': 3}, 3, 3), id=i)
         decklist.append(cards.Sorcery("Volcanic Hammer", "", {'Red': 1, 'Generic': 1}))
     for i in range(1):
         decklist.append(cards.Creature("Spined Wurm", "Wurm", {'Green': 1, 'Generic': 4}, 4, 3))
@@ -45,12 +45,12 @@ def get_8ed_core_silver_deck():
     for i in range(7):
         decklist.append(cards.Land("Island", "Basic Land", "Island", [lambda self: self.owner.add_mana({"Blue": 1})]))
     for i in range(4):
-        decklist.append(cards.Creature("Glory Seeker", "Human Soldier", {'White': 1, 'Generic': 1}, 2, 2))
+        decklist.append(cards.Creature("Glory Seeker", "Human Soldier", {'White': 1, 'Generic': 1}, 2, 2), id=i)
     for i in range(3):
-        decklist.append(cards.Creature("Giant Octopus", "Octopus", {'Blue': 1, 'Generic': 3}, 3, 3))
+        decklist.append(cards.Creature("Giant Octopus", "Octopus", {'Blue': 1, 'Generic': 3}, 3, 3), id=i)
     for i in range(2):
-        decklist.append(cards.Creature("Coral Eel", "Eel", {'Blue': 1, 'Generic': 1}, 2, 1))
-        decklist.append(cards.Creature("Vizzerdrix", "Beast", {'Blue': 1, 'Generic': 6}, 6, 6))
+        decklist.append(cards.Creature("Coral Eel", "Eel", {'Blue': 1, 'Generic': 1}, 2, 1), id=i)
+        decklist.append(cards.Creature("Vizzerdrix", "Beast", {'Blue': 1, 'Generic': 6}, 6, 6), id=i)
         decklist.append(cards.Sorcery("Sacred Nectar", "", {'White': 1, 'Generic': 1}))
         decklist.append(cards.Sorcery("Vengeance", "", {'White': 1, 'Generic': 1}))
     for i in range(1):

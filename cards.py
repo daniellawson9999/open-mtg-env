@@ -62,7 +62,7 @@ class Sorcery(Card):
 
 
 class Creature(Card):
-    def __init__(self, name, subtypes, mc, power, toughness, cannot_block=False):
+    def __init__(self, name, subtypes, mc, power, toughness, cannot_block=False, id=0):
         super(Creature, self).__init__()
         self.name = name
         self.mc = {x: mc.get(x, 0) + self.mc.get(x, 0) for x in set(mc).union(self.mc)}
@@ -82,6 +82,7 @@ class Creature(Card):
         self.damage_assignment = []
         # Consider adding a functional creature card instantiation argument that sets text automatically
         self.cannot_block = cannot_block
+        self.id = id
 
     def play(self, owner, game, verbose=False):
         super(Creature, self).play(owner, game)
@@ -106,6 +107,9 @@ class Creature(Card):
     def assign_damage(self, index, amount):
         self.damage_assignment[index] += amount
         self.damage_to_assign -= amount
+    
+    def name_id(self):
+        return f'{self.name}${self.id}'
 
     def __repr__(self):
         return self.name
