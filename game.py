@@ -33,9 +33,10 @@ class Game:
         # two counters to help keep track of damage assignment - per attacker - per blocker, respectively
         self.attacker_counter = 0
         self.blocker_counter = 0
+        self.current_attacker # reference to current attacker for blocker order unroller
         
 
-    def get_board_string(self, colors=["Gold", "Silver"], additional_attacker_names=None, additional_block_assignments=None):
+    def get_board_string(self, colors=["Gold", "Silver"], additional_attacker_names=None, additional_block_assignments=None, additional_order_assignments=None):
         current_player = self.player_with_priority
         other_player = self.players[1 - current_player.index]
 
@@ -96,6 +97,15 @@ class Game:
         creatures_other_tapped = self.filter_cards_tapped(creatures_other, tapped=True)
 
 
+        # get blocking order assignment info if blocking order phase
+        # This info may not be necessary
+        damage_order_str = "None"
+        if additional_order_assignments not None:
+            attacker_name = additional_order_assignments["attacker_name"]
+            blocker_names = additional_order_assignments["blocker_names"]
+            damage_order_str = f'attacker: ${attacker_name}$ blocked by: ${'$'.join(blocker_names)'
+            
+
         # remember, this could be broken down into to different compoments
         # "missing" parts of game state suck as summoning sickness, graveyards, etc
 
@@ -116,6 +126,7 @@ class Game:
         opponent-creatures-untapped$ {self.cards_to_string(creatures_other_untapped)}$
         opponent-creatures-tapped$ {self.cards_to_string(creatures_other_tapped)}$
         attackers-blockers$ {attacker_block_str}
+        damage-order$ {damage_order_str}
         '''
     # maybe add _id
     def cards_to_string(self,cards):
@@ -301,7 +312,7 @@ class Game:
             for i in range(len(self.attackers)):
                 if len(self.attackers[i].is_blocked_by) != 0:
                     if len(self.attackers[i].damage_assignment_order) == 0:
-                        self.attackers[i].set_damage_assignment_order(move)
+                        self.attackers[i].set_damage_assignment_order(move, direct_order_passed=assignments_passed)
                         return 1
             return -1
         # A blocked creature assigns its combat damage to the creatures blocking it
@@ -462,7 +473,8 @@ class Game:
             for i in range(len(self.attackers)):
                 if len(self.attackers[i].is_blocked_by) != 0:
                     if len(self.attackers[i].damage_assignment_order) == 0:
-                        return list(range(math.factorial(len(self.attackers[i].is_blocked_by)))), None
+                        self.current_attacker = self.attackers[i]
+                        return list(range(math.factorial(len(self.attackers[i].is_blocked_by)))), OrderActionUnroller(self)
             return ["Pass"], ["Pass"]
 
         if self.current_phase_index == Phases.COMBAT_DAMAGE_STEP_510_1c:
@@ -660,7 +672,7 @@ class BlockerActionUnroller(ActionUnroller):
         self.num_blockers = len(self.eligible_blockers)
         self.num_attackers = len(self.game.attackers)
         self.blocker_index = 0
-        assert(self.num_blockers > 0 and self.num_attackers > 0), "BlockerActionUnroller called with zero attackers or blockers"
+        assert(self.game.num_blockers > 0 and self.game.num_attackers > 0), "BlockerActionUnroller called with zero attackers or blockers"
         
         self.block_assignment_dict = {} # key is attacker, value is an array of blockers
         self.current_legal_moves = None
@@ -713,5 +725,64 @@ class BlockerActionUnroller(ActionUnroller):
         self.game.make_move(move=self.block_assignment_dict, blockers_passed=True)
         return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict))
 
+class OrderActionUnroller(ActionUnroller):
+    def __init__(self,game):
+        super().__init__(game)
+        self.attacking_player = self.game.active_player
+        self.attacker = self.game.current_attacker
+        self.blockers = self.attacker.is_blocked_by
+        self.blocker_names = [blocker.name_id for blocker in self.blockers]
+        self.legal_blocker_names = self.blocker_names.copy() # blockers yet selected
+        self.selected_blocker_names = []
+        assert(self.game.num_blockers > 0 and self.game.num_attackers > 0 and len(self.blockers) > 0), "OderActionUnroller called with zero attackers or blockers"
+        
+        self.current_legal_moves = None
 
-# TODO, damage assignment unroller
+
+    def done(self):
+        return self.done
+
+    def get_legal_moves(self):
+        assert (not self.done), "Called get_move when done"
+        assert (len(self.selected_blocker_names < len(blocker_names)))
+
+        return self.legal_blocker_names
+
+    def get_info(self):
+        info = {
+            "attacker_name": [self.attacker.name_id]
+            "blocker_names": self.selected_blocker_names
+        }
+        return info
+
+    # returns state after registering the move 
+    def register_move(self, move):
+        assert (move in self.legal_blocker_names), "Invalid move"
+        
+        # add to selected moves  and remove from legal
+        self.selected_blocker_names.append(move)
+        self.legal_blocker_names.remove(move)
+        
+        # if just one decision left, we can make it, otherwise just mark as done
+        if len(self.legal_blocker_names) <= 1:
+            self.done = True
+            if len(self.legal_blocker_names) == 1:
+                self.selected_blocker_names.append(self.legal_blocker_names.pop())
+
+        
+        return self.game.get_board_string(additional_order_assignments=self.get_info())
+
+    # officially applies the "registered" moves to the game
+    # should be called after "done" unrolling
+    def make_move(self):
+        assert (self.done), "Unrolling not complete"
+        ordered_blockers = []
+        # convert selected names to indexes
+        for blocker_name in self.selected_blocker_names:
+            ordered_blockers.append(self.blockers[self.blocker_names.index(blocker_name)])
+        # passes the order of blockers 
+        self.game.make_move(move=ordered_blockers, assignments_passed=True)
+        return self.game.get_board_string(additional_order_assignments=self.get_info()))
+
+
+

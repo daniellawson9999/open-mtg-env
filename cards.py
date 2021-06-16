@@ -98,9 +98,13 @@ class Creature(Card):
     def deal_combat_damage_to_opponent(self, game):
         game.players[1 - self.owner.index].lose_life(self.power)
 
-    def set_damage_assignment_order(self, order):
-        all_permutations = list(itertools.permutations(self.is_blocked_by))
-        self.damage_assignment_order = list(all_permutations[order])
+    def set_damage_assignment_order(self, order, direct_order_passed=False):
+        # can directly pass order or pass an index to the permutations
+        if direct_order_passed:
+            self.damage_assignment_order = order
+        else:
+            all_permutations = list(itertools.permutations(self.is_blocked_by))
+            self.damage_assignment_order = list(all_permutations[order])
         self.damage_to_assign = self.power
         self.damage_assignment = [0] * len(self.damage_assignment_order)
 
