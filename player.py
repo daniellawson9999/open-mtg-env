@@ -27,7 +27,7 @@ class Player:
     def get_mp_as_list(self):
         mp_list = []
         for key in self.manapool:
-            for i in range(self.manapool[key]):
+            for i in range(self.manapool[key]): 
                 mp_list.append(key)
         return mp_list
 
