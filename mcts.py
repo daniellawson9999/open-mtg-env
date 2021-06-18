@@ -15,7 +15,7 @@ class Node:
         self.child_nodes = []
         self.wins = 0
         self.visits = 0
-        self.untried_moves = state.get_moves()  # future child nodes
+        self.untried_moves, _ = state.get_moves()  # future child nodes
         self.player_just_moved = state.player_just_moved  # the only part of the state that the Node needs later
 
     def uct_select_child(self):
@@ -96,8 +96,10 @@ def uct(rootstate, itermax, verbose=False):
             node = node.add_child(m, state)  # add child and descend tree
 
         # Rollout - this can often be made orders of magnitude quicker using a state.GetRandomMove() function
-        while not state.get_moves() == []:  # while state is non-terminal
-            state.make_move(random.choice(state.get_moves()))
+        moves,_ = state.get_moves()
+        while not moves == []:  # while state is non-terminal
+            state.make_move(random.choice(moves))
+            moves,_ = state.get_moves()
 
         # Backpropagate
         while node is not None:  # backpropagate from the expanded node and work back to the root node

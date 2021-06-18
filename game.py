@@ -33,7 +33,7 @@ class Game:
         # two counters to help keep track of damage assignment - per attacker - per blocker, respectively
         self.attacker_counter = 0
         self.blocker_counter = 0
-        self.current_attacker # reference to current attacker for blocker order unroller
+        self.current_attacker = None # reference to current attacker for blocker order unroller
         
 
     def get_board_string(self, colors=["Gold", "Silver"], additional_attacker_names=None, additional_block_assignments=None, additional_order_assignments=None, additional_mana_info=None):
@@ -57,7 +57,7 @@ class Game:
             for blocker in attacker.is_blocked_by:
                 attacker_block_dict[attacker.name_id].append(blocker.name_id)
             # add additional passed info
-            if attaker.name_id in additional_block_assignments:
+            if attacker.name_id in additional_block_assignments:
                 for blocker_name in additional_block_assignments[attacker.name_id]:
                     if blocker_name not in attacker_block_dict[attacker.name_id]:
                         attacker_block_dict[attacker.name_id].append(blocker_name)
@@ -70,7 +70,7 @@ class Game:
         for attacker_name, blocker_names in attacker_block_dict.items():
             if len(blocker_names == 0):
                 blocker_names = ["None"]
-            attacker_str = f'attacker: ${attacker_name}$ blocked by: ${'$'.join(blocker_names)}$'
+            attacker_str = f'attacker: ${attacker_name}$ blocked by: ${"$".join(blocker_names)}$'
             attacker_block_str.append(attacker_str)
         attacker_block_str = '\n'.join(attacker_block_str)
         if len(attacker_block_str) == 0:
@@ -100,10 +100,10 @@ class Game:
         # get blocking order assignment info if blocking order phase
         # This info may not be necessary
         damage_order_str = "None"
-        if additional_order_assignments not None:
+        if additional_order_assignments != None:
             attacker_name = additional_order_assignments["attacker_name"]
             blocker_names = additional_order_assignments["blocker_names"]
-            damage_order_str = f'attacker: ${attacker_name}$ blocked by: ${'$'.join(blocker_names)'
+            damage_order_str = f'attacker: ${attacker_name}$ blocked by: ${"$".join(blocker_names)}'
 
         # get manapool and debt info
         if additional_mana_info is None:
@@ -165,7 +165,7 @@ class Game:
         new_cards = []
         for card in cards:
             if card.owner == player:
-                new_cards.append(land)
+                new_cards.append(card)
         return new_cards
 
     def filter_cards_tapped(self, cards, tapped=False):
@@ -191,7 +191,7 @@ class Game:
     def get_moves(self):
         player = self.player_with_priority
         move_indexes, move_strings = self.get_legal_moves(player)
-        return move_indexes
+        return move_indexes, move_strings
 
     def get_results(self, player_index):
         player = self.players[player_index]
@@ -690,7 +690,7 @@ class BlockerActionUnroller(ActionUnroller):
         self.num_blockers = len(self.eligible_blockers)
         self.num_attackers = len(self.game.attackers)
         self.blocker_index = 0
-        assert(self.game.num_blockers > 0 and self.game.num_attackers > 0), "BlockerActionUnroller called with zero attackers or blockers"
+        assert(self.num_blockers > 0 and self.num_attackers > 0), "BlockerActionUnroller called with zero attackers or blockers"
         
         self.block_assignment_dict = {} # key is attacker, value is an array of blockers
         self.current_legal_moves = None
@@ -741,7 +741,7 @@ class BlockerActionUnroller(ActionUnroller):
         assert (self.done), "Unrolling not complete"
         
         self.game.make_move(move=self.block_assignment_dict, blockers_passed=True)
-        return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict))
+        return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict)
 
 class OrderActionUnroller(ActionUnroller):
     def __init__(self,game):
@@ -752,7 +752,7 @@ class OrderActionUnroller(ActionUnroller):
         self.blocker_names = [blocker.name_id for blocker in self.blockers]
         self.legal_blocker_names = self.blocker_names.copy() # blockers yet selected
         self.selected_blocker_names = []
-        assert(self.game.num_blockers > 0 and self.game.num_attackers > 0 and len(self.blockers) > 0), "OderActionUnroller called with zero attackers or blockers"
+        assert(len(self.blockers) > 0), "OderActionUnroller called with zero blockers"
         
         self.current_legal_moves = None
 
@@ -762,13 +762,13 @@ class OrderActionUnroller(ActionUnroller):
 
     def get_legal_moves(self):
         assert (not self.done), "Called get_move when done"
-        assert (len(self.selected_blocker_names < len(blocker_names)))
+        assert (len(self.selected_blocker_names < len(self.blocker_names)))
 
         return self.legal_blocker_names
 
     def get_info(self):
         info = {
-            "attacker_name": [self.attacker.name_id]
+            "attacker_name": [self.attacker.name_id],
             "blocker_names": self.selected_blocker_names
         }
         return info
@@ -800,14 +800,14 @@ class OrderActionUnroller(ActionUnroller):
             ordered_blockers.append(self.blockers[self.blocker_names.index(blocker_name)])
         # passes the order of blockers 
         self.game.make_move(move=ordered_blockers, assignments_passed=True)
-        return self.game.get_board_string(additional_order_assignments=self.get_info()))
+        return self.game.get_board_string(additional_order_assignments=self.get_info())
 
 class ManaActionUnroller(ActionUnroller):
     def __init__(self,game, player):
         super().__init__(game)
         self.player = player
         self.mp_as_list = player.get_mp_as_list()
-        self.unused_mana = mp_as_list.copy()
+        self.unused_mana = self.mp_as_list.copy()
         self.used_mana = []
         assert (player.generic_debt > 0), "Created ManaActionUnroller with no debt to pay"
         self.combinations = list(itertools.combinations(self.mp_as_list, player.generic_debt))      
@@ -817,14 +817,14 @@ class ManaActionUnroller(ActionUnroller):
         return self.done
 
     def get_info(self):
-        debt = player.generic_debt - len(self.used_mana)
+        debt = self.player.generic_debt - len(self.used_mana)
         assert (debt >= 0), "invalid debt info returned"
         manapool = self.player.manapool.copy()
         for mana in self.used_mana:
             assert(manapool[mana] > 0), "invalid manapool info returned"
             manapool[mana] -= 1
         info = {
-            'debt': debt
+            'debt': debt,
             'manapool': manapool
         }
         return info
@@ -840,7 +840,7 @@ class ManaActionUnroller(ActionUnroller):
         self.used_mana.append(move)
         self.unused_mana.remove(move)
         
-        if len(self.used_mana) >= player.generic_debt:
+        if len(self.used_mana) >= self.player.generic_debt:
             self.done = True
         
         return self.game.get_board_string(additional_mana_info=self.get_info()) 
