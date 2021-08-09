@@ -57,10 +57,11 @@ class Game:
             for blocker in attacker.is_blocked_by:
                 attacker_block_dict[attacker.name_id].append(blocker.name_id)
             # add additional passed info
-            if attacker.name_id in additional_block_assignments:
-                for blocker_name in additional_block_assignments[attacker.name_id]:
-                    if blocker_name not in attacker_block_dict[attacker.name_id]:
-                        attacker_block_dict[attacker.name_id].append(blocker_name)
+            if additional_block_assignments != None:
+                if attacker.name_id in additional_block_assignments:
+                    for blocker_name in additional_block_assignments[attacker.name_id]:
+                        if blocker_name not in attacker_block_dict[attacker.name_id]:
+                            attacker_block_dict[attacker.name_id].append(blocker_name)
             if len(attacker_block_dict[attacker.name_id]) == 0:
                 attacker_block_dict[attacker.name_id].append("None")
 
@@ -68,7 +69,7 @@ class Game:
         
         attacker_block_str = []
         for attacker_name, blocker_names in attacker_block_dict.items():
-            if len(blocker_names == 0):
+            if len(blocker_names) == 0:
                 blocker_names = ["None"]
             attacker_str = f'attacker: ${attacker_name}$ blocked by: ${"$".join(blocker_names)}$'
             attacker_block_str.append(attacker_str)
@@ -141,9 +142,12 @@ class Game:
         attackers-blockers$ {attacker_block_str}$
         damage-order$ {damage_order_str}$
         '''
+        return board_string
+
     # maybe add _id
     def cards_to_string(self,cards):
-        return '$'.join(cards.name)
+        names = [card.name for card in cards]
+        return '$'.join(names)
 
     def get_lands(self):
         lands = []
@@ -249,7 +253,7 @@ class Game:
             player.casting_spell = ""
             return True
 
-        if move is "Pass":
+        if move == "Pass":
             player.passed_priority = True
             self.player_with_priority = self.active_player.get_opponent(self)
             if self.players[0].passed_priority and self.players[1].passed_priority and self.stack_is_empty:
@@ -422,6 +426,8 @@ class Game:
                 indices = self.get_land_indices()
                 return indices, self.get_card_names_from_indices(indices)
             if player.casting_spell == "Index": # MAYBE REMOVE FOR SIMPLICITY # TODO
+                assert(False),"NOT HERE"
+                print("TODO REMOVE")
                 return list(itertools.permutations(list(range(min(5, len(player.deck)))))), None
             if player.casting_spell == "Lava Axe":
                 return [0, 1], self.player_target_to_string()
@@ -498,8 +504,10 @@ class Game:
         if self.current_phase_index == Phases.COMBAT_DAMAGE_STEP_510_1c:
             if len(self.attackers) == 0 or self.attacker_counter >= len(self.attackers):
                 return ["Pass"], ["Pass"]
-            return self.get_possible_damage_assignments(player, self.attackers[self.attacker_counter],
-                                                        self.blocker_counter), None
+            assignments = self.get_possible_damage_assignments(player, self.attackers[self.attacker_counter],
+                                                        self.blocker_counter)
+            #print("assignments",assignments)
+            return assignments, assignments
         if self.current_phase_index == Phases.COMBAT_DAMAGE_STEP:
             return ["Pass"], ["Pass"]
         if self.current_phase_index == Phases.END_OF_COMBAT_STEP:
@@ -522,13 +530,15 @@ class Game:
             return ["Pass"]
         blocker_i = attacker.damage_assignment_order[index]
         remaining_health = blocker_i.toughness - blocker_i.damage_taken
-        if attacker.damage_to_assign < remaining_health or index == len(attacker.damage_assignment_order) - 1:
-            return list(range(attacker.damage_to_assign, attacker.damage_to_assign + 1))
-        else:
-            # modify this line, this is incorrect
-            # the attacker does not get to chose how much damage to assign to each after ordering
-            #return list(range(remaining_health, attacker.damage_to_assign + 1))
-            return [remaining_health]
+        # if attacker.damage_to_assign < remaining_health or index == len(attacker.damage_assignment_order) - 1:
+        #     return list(range(attacker.damage_to_assign, attacker.damage_to_assign + 1))
+        # else:
+        #     # modify this line, this is incorrect
+        #     # the attacker does not get to chose how much damage to assign to each after ordering
+        #     #return list(range(remaining_health, attacker.damage_to_assign + 1))
+        #     return [remaining_health]
+        return [remaining_health]
+        
 
     def start_game(self):
         self.active_player.passed_priority = False
@@ -632,11 +642,15 @@ class ActionUnroller(ABC):
         pass
 
     @abstractmethod
-    def done():
+    def is_done():
         pass
 
     @abstractmethod
     def register_move(self, move):
+        pass
+
+    @abstractmethod
+    def make_move(self):
         pass
 
 # Maybe redo to manipulate classes instead of strings
@@ -650,7 +664,7 @@ class AttackerActionUnroller(ActionUnroller):
         self.legal_moves.append("Pass")
         self.selected_attackers = []
 
-    def done(self):
+    def is_done(self):
         return self.done
 
     def get_legal_moves(self):
@@ -696,14 +710,14 @@ class BlockerActionUnroller(ActionUnroller):
         self.current_legal_moves = None
 
 
-    def done(self):
+    def is_done(self):
         return self.done
 
     def get_legal_moves(self):
         assert (not self.done), "Called get_move when done"
         # might want to verify this line ->, refactor
         moves = ["Pass"]
-        if len(self.blocker_index + 1 > self.num_blockers):
+        if  self.blocker_index + 1 > self.num_blockers:
             pass
         else:
             current_blocker = self.eligible_blockers[self.blocker_index]
@@ -715,6 +729,12 @@ class BlockerActionUnroller(ActionUnroller):
     # returns state after registering the move 
     def register_move(self, move):
         assert (move in self.current_legal_moves), "Invalid move"
+        
+        if move == ["Pass"]:
+            assert(False),"Move error,should not be array"
+        if move == "Pass":
+            self.done = True
+            return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict)
         
         # parse move
         info = move.split('block')
@@ -741,7 +761,7 @@ class BlockerActionUnroller(ActionUnroller):
         assert (self.done), "Unrolling not complete"
         
         self.game.make_move(move=self.block_assignment_dict, blockers_passed=True)
-        return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict)
+        #return self.game.get_board_string(additional_block_assignments=self.block_assignment_dict)
 
 class OrderActionUnroller(ActionUnroller):
     def __init__(self,game):
@@ -757,12 +777,12 @@ class OrderActionUnroller(ActionUnroller):
         self.current_legal_moves = None
 
 
-    def done(self):
+    def is_done(self):
         return self.done
 
     def get_legal_moves(self):
         assert (not self.done), "Called get_move when done"
-        assert (len(self.selected_blocker_names < len(self.blocker_names)))
+        assert (len(self.selected_blocker_names) < len(self.blocker_names))
 
         return self.legal_blocker_names
 
@@ -800,7 +820,7 @@ class OrderActionUnroller(ActionUnroller):
             ordered_blockers.append(self.blockers[self.blocker_names.index(blocker_name)])
         # passes the order of blockers 
         self.game.make_move(move=ordered_blockers, assignments_passed=True)
-        return self.game.get_board_string(additional_order_assignments=self.get_info())
+        #return self.game.get_board_string(additional_order_assignments=self.get_info())
 
 class ManaActionUnroller(ActionUnroller):
     def __init__(self,game, player):
@@ -813,7 +833,7 @@ class ManaActionUnroller(ActionUnroller):
         self.combinations = list(itertools.combinations(self.mp_as_list, player.generic_debt))      
         self.current_legal_moves = None
 
-    def done(self):
+    def is_done(self):
         return self.done
 
     def get_info(self):
@@ -851,7 +871,7 @@ class ManaActionUnroller(ActionUnroller):
         assert (self.done), "Unrolling not complete"
         
         self.game.make_move(move=self.used_mana)
-        return self.game.get_board_string(additional_mana_info=self.get_info())
+        #return self.game.get_board_string(additional_mana_info=self.get_info())
 
 
 

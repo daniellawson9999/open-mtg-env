@@ -56,5 +56,7 @@ def get_8ed_core_silver_deck():
     for i in range(1):
         decklist.append(cards.Creature("Eager Cadet", "Human Soldier", {'White': 1, 'Generic': 0}, 1, 1))
         decklist.append(cards.Creature("Fugitive Wizard", "Human Wizard", {'Blue': 1, 'Generic': 0}, 1, 1))
-        decklist.append(cards.Sorcery("Index", "", {'Blue': 1, 'Generic': 0}))
+        # Adding an extra fugitive wizard and removing Index
+        decklist.append(cards.Creature("Fugitive Wizard", "Human Wizard", {'Blue': 1, 'Generic': 0}, 1, 1))
+        #decklist.append(cards.Sorcery("Index", "", {'Blue': 1, 'Generic': 0}))
     return decklist

@@ -112,6 +112,7 @@ class Creature(Card):
         self.damage_assignment[index] += amount
         self.damage_to_assign -= amount
     
+    @property
     def name_id(self):
         return f'{self.name}${self.id}'
 
