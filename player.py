@@ -8,7 +8,7 @@ from cards import Card, Land, Creature, Sorcery
 
 
 class Player:
-    def __init__(self, deck, name="None"):
+    def __init__(self, deck, name="None", deck_name="None"):
         self.index = None
         self.deck = deck
         self.life = 20
@@ -21,6 +21,7 @@ class Player:
         self.has_blocked = False
         self.passed_priority = True
         self.casting_spell = ""
+        self.deck_name = deck_name
         self.manapool = {'White': 0, 'Blue': 0, 'Black': 0, 'Red': 0, 'Green': 0, 'Colorless': 0}
         self.name = name
 
