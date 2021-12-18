@@ -184,7 +184,8 @@ class Player:
     def get_nonempty_mana_colors(self):
         mana_colors = []
         for key in self.manapool:
-            if key is not 'Generic':
+            #if key is not 'Generic':
+            if key != 'Generic':
                 if self.manapool[key] > 0:
                     mana_colors.append(key)
         return mana_colors

@@ -188,7 +188,8 @@ class Game:
         strings = []
         creatures = self.get_battlefield_creatures()
         for creature in creatures:
-            strings.append(str(creature))
+            #strings.append(str(creature))
+            strings.append(creature.name_id)
         strings.extend(self.player_target_to_string())
         return strings
 
