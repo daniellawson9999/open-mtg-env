@@ -263,6 +263,8 @@ class Game:
         if self.current_phase_index == Phases.MAIN_PHASE_PRE_COMBAT:
             playable_indices = player.get_playable_cards(self)
             callable_permanents, ability_indices = player.get_activated_abilities(self)
+            move = int(move)
+
             if move < len(playable_indices):
                 player.play_card(playable_indices[move], self, verbose)
             else:
@@ -272,6 +274,7 @@ class Game:
                         move -= ability_indices[i]
                     else:
                         callable_permanents[i].use_tapped_ability(move - 1)
+   
 
         if self.current_phase_index == Phases.DECLARE_ATTACKERS_STEP:
             attacking_player = self.active_player
@@ -870,7 +873,6 @@ class ManaActionUnroller(ActionUnroller):
     # should be called after "done" unrolling
     def make_move(self):
         assert (self.done), "Unrolling not complete"
-        
         self.game.make_move(move=self.used_mana)
         #return self.game.get_board_string(additional_mana_info=self.get_info())
 
