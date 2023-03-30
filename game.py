@@ -40,6 +40,9 @@ class Game:
         current_player = self.player_with_priority
         other_player = self.players[1 - current_player.index]
 
+        # set colors properly
+        colors = [self.players[0].deck_name, self.players[1].deck_name]
+
         # append additional attacker info 
         # used with AttackerUnrollers for returning updated state information
         attacker_names = [attacker.name_id for attacker in self.attackers]
@@ -121,9 +124,9 @@ class Game:
         # remember, this could be broken down into to different compoments
         # "missing" parts of game state suck as summoning sickness, graveyards, etc
 
-
         board_string = f'''
-        player-color$ {colors[current_player.index]}$
+        player-index$ {current_player.index}$
+        player-deck$ {colors[current_player.index]}$
         life$ {current_player.life}$
         opponent-life$ {other_player.life}$
         phase$ {self.current_phase_index}$
