@@ -120,9 +120,12 @@ class Game:
         # convert manapool to str
         manapool_str = '$ '.join([f'{mana}$ {value}' for (mana,value) in manapool.items()])
 
+        casting_spell =current_player.casting_spell
+        if casting_spell is None or len(casting_spell) == 0:
+            casting_spell = "None"
 
         # remember, this could be broken down into to different compoments
-        # "missing" parts of game state suck as summoning sickness, graveyards, etc
+        # "missing" parts of game state such as summoning sickness, graveyards, etc
 
         board_string = f'''
         player-index$ {current_player.index}$
@@ -133,23 +136,27 @@ class Game:
         hand$ {self.cards_to_string(current_player.hand)}$
         generic-debt$ {debt}$
         manapool$ {manapool_str}$
+        casting$ {casting_spell}
         opponent-cards$ {len(other_player.hand)}$
         self-lands-untapped$ {self.cards_to_string(lands_current_untapped)}$
         self-lands-tapped$ {self.cards_to_string(lands_current_tapped)}$
         opponent-lands-untapped$ {self.cards_to_string(lands_other_untapped)}$
         opponent-lands-tapped$ {self.cards_to_string(lands_other_tapped)}$
-        self-creatures-untapped$ {self.cards_to_string(creatures_current_untapped)}$
-        self-creatures-tapped$ {self.cards_to_string(creatures_current_tapped)}$
-        opponent-creatures-untapped$ {self.cards_to_string(creatures_other_untapped)}$
-        opponent-creatures-tapped$ {self.cards_to_string(creatures_other_tapped)}$
+        self-creatures-untapped$ {self.cards_to_string(creatures_current_untapped, id=True)}$
+        self-creatures-tapped$ {self.cards_to_string(creatures_current_tapped, id=True)}$
+        opponent-creatures-untapped$ {self.cards_to_string(creatures_other_untapped, id=True)}$
+        opponent-creatures-tapped$ {self.cards_to_string(creatures_other_tapped, id=True)}$
         attackers-blockers$ {attacker_block_str}$
         damage-order$ {damage_order_str}$
         '''
         return board_string
 
     # maybe add _id
-    def cards_to_string(self,cards):
-        names = [card.name for card in cards]
+    def cards_to_string(self,cards, id=False):
+        if id:
+            names = [card.name_id for card in cards]
+        else:
+            names = [card.name for card in cards]
         return '$'.join(names)
 
     def get_lands(self):

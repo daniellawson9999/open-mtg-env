@@ -114,7 +114,7 @@ class Creature(Card):
     
     @property
     def name_id(self):
-        return f'{self.name}${self.id}'
+        return f'{self.name}-{self.id}'
 
     def __repr__(self):
         return self.name

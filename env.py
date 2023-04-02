@@ -30,6 +30,13 @@ class MtgEnv:
         # initlize game
         self.reset()
     
+    def state_action_to_query(self, state,available_actions):
+        available_actions = ', '.join(available_actions)
+        query = f'{state}\navailable_actions: {available_actions}\n'
+        return query
+    def format_action(self, action):
+        return f'best: {action}'
+
     # return index of player with priority
     @property
     def other_player_index(self):
@@ -45,7 +52,7 @@ class MtgEnv:
         self.game = Game([self.player1, self.player2])
         self.game.start_game()
 
-        self.active_player_index = self.game.player_with_priority
+        self.active_player_index = self.game.player_with_priority.index
         self.move_indices, self.move_strings = self.game.get_moves()
         self.state = self.game.get_board_string()
 
@@ -70,7 +77,15 @@ class MtgEnv:
 
                 # update state
                 self.state = self.game.get_board_string()
-                self.move_indices, self.move_strings = self.game.get_moves()
+                move_indices, move_strings = self.game.get_moves()
+                if isinstance(move_strings, ActionUnroller):
+                    self.action_unroller = move_strings
+                    self.move_strings = self.action_unroller.get_legal_moves()
+                    self.move_indices = None
+                else:
+                    self.move_strings = move_strings
+                    self.move_indices = move_indices
+
             else:
                 # Still in unroller, move indices not needed as unroller takes action strings
                 self.move_strings = self.action_unroller.get_legal_moves()
@@ -99,7 +114,7 @@ class MtgEnv:
         else:
             state = copy.deepcopy(self.state)
             possible_moves = copy.deepcopy(self.move_strings)
-            self.active_player_index = self.game.player_with_priority
+            self.active_player_index = self.game.player_with_priority.index
             active_player_index = self.active_player_index
             info = {}
             done = self.game.is_over()
