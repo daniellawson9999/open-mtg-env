@@ -91,7 +91,9 @@ def main(script_args):
         # collect training data from self-play
         print(f"Starting iteration {iteration}")
         #queries, actions, rewards, player_0_wins, player_1_wins = run_games(env, model, tokenizer, device, n_games=train_games, mode_0='lm', mode_1='lm', lm_sample=True)
-        queries, actions, rewards, player_0_wins, player_1_wins = run_games(env, model, tokenizer, device, n_games=train_games, mode_0='random', mode_1='random', lm_sample=True)
+        #queries, actions, rewards, player_0_wins, player_1_wins = run_games(env, model, tokenizer, device, n_games=train_games, mode_0='random', mode_1='random', lm_sample=True)
+        queries, actions, rewards, player_0_wins, player_1_wins = run_games(env, model, tokenizer, device, n_games=train_games, mode_0='lm', mode_1='random', lm_sample=True)
+
         #import pdb; pdb.set_trace()
         # shuffle order of queries, actions, rewards
         bundle = list(zip(queries, actions, rewards))
@@ -111,8 +113,8 @@ def main(script_args):
             model.gradient_checkpointing_enable()
             model.pretrained_model.config.use_cache = False
 
-            train_stats = ppo_trainer.step(queries_batch, actions_batch, rewards_batch)
             #import pdb; pdb.set_trace()
+            train_stats = ppo_trainer.step(queries_batch, actions_batch, rewards_batch)
 
         # evaluate the model against random
         _, _, _, player_0_wins, player_1_wins = run_games(env, model, tokenizer, device, n_games=eval_games, mode_0='lm', mode_1='random', lm_sample=False)
@@ -141,7 +143,7 @@ if __name__ == '__main__':
         )
         adap_kl_ctrl: Optional[bool] = field(default=False, metadata={"help": "whether to use adaptive KL control"})
         #init_kl_coef: Optional[float] = field(default=0.2, metadata={"help": "the initial KL coefficient"}),
-        init_kl_coef: Optional[float] = field(default=0.0, metadata={"help": "the initial KL coefficient"}) # set to negative temp
+        init_kl_coef: Optional[float] = field(default=0.2, metadata={"help": "the initial KL coefficient"}) # set to negative temp
 
 
     parser = HfArgumentParser(ScriptArguments)

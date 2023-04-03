@@ -86,19 +86,21 @@ def run_games(env, model, tokenizer, device, n_games=1, mode_0='random', mode_1=
             state, possible_moves, active_player_index, done, info = env.step(action)
 
         # get reward for each player from game outcome
+        win_reward = 1.0
+        lose_rewad = 0.1
         if info['winning_player'] == 0:
             player_0_wins += 1
-            reward_0 = 1.0
-            reward_1 = -1.0
+            reward_0 = win_reward
+            reward_1 = lose_rewad
             #reward_1 = 0
         else:  
             player_1_wins += 1
-            reward_0 = -1.0
+            reward_0 = lose_rewad
             #reward_0 = 0
-            reward_1 = 1.0
+            reward_1 = win_reward
         # TODO, remove
-        # reward_0 =0.0
-        # reward_1 = 0.0
+        # reward_0 =1.0
+        # reward_1 = 1.0
         player_0_rewards = [torch.tensor([reward_0]) for i in range(len(player_0_queries))]
         player_1_rewards = [torch.tensor([reward_1]) for i in range(len(player_1_queries))]
         queries.extend(player_0_queries + player_1_queries)
