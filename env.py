@@ -53,6 +53,7 @@ class MtgEnv:
         self.game.start_game()
 
         self.active_player_index = self.game.player_with_priority.index
+        self.player_last_moved = None
         self.move_indices, self.move_strings = self.game.get_moves()
         self.state = self.game.get_board_string()
 
@@ -61,11 +62,32 @@ class MtgEnv:
         state = copy.deepcopy(self.state)
         return possible_moves, state, self.active_player_index
 
+    # def update_state(self):
+    #     self.state = self.game.get_board_string()
+    #     self.move_indices, self.move_strings = self.game.get_moves()
+    #     done = self.game.is_game_over()
+    #     info = {}
+    #     if self.game.players[0].has_lost:
+    #         info['winning_player'] = 1
+    #     else:
+    #         info['winning_player'] = 0
+    #     self.active_player_index = self.game.player_with_priority.index
+
+
+    #     if self.game.current_phase_index == Phases.COMBAT_DAMAGE_STEP_510_1c:
+    #         self.state, self.move_strings , self.active_player_index, done, info = self.step(self.move_indices[0], passed_index=True)
+    #     state = copy.copy(state)
+    #     possible_moves = copy.copy(self.move_strings)
+    #     return state, possible_moves, self.active_player_index, done, info
+
+
+
     def step(self, action_str, passed_index=False):
         # check that action is valid
         assert action_str in self.move_strings, f"Invalid action {action_str} not in {self.move_strings}"
         # TODO, handle dmage step
-
+        self.player_last_moved = self.active_player_index
+        
         # check if currently in an action unroller loop
         if self.action_unroller is not None:
             assert not passed_index, "should not pass index to unroller"
