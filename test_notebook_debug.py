@@ -286,7 +286,7 @@ for game in data['Gold']:
 
 # %%
 embed_dim=128
-embed_dim=256
+embed_dim=512
 dropout=.1
 
 hidden_size=embed_dim
@@ -302,6 +302,7 @@ attn_pdrop=dropout
 device = 'cuda'
 num_trajectories = len(trajectories)
 K=20
+K=1
 max_ep_len = max_per_game
 act_dim = 1
 
@@ -346,7 +347,6 @@ def get_batch(batch_size=256, max_len=K):
             a.append(traj['actions'][si:si + max_len].reshape(1, -1, act_dim))
             r.append(traj['rewards'][si:si + max_len].reshape(1, -1, 1))
             tlen = a[-1].shape[1]
-
             
             timesteps.append(np.arange(si, si + tlen).reshape(1, -1))
             timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len-1  # padding cutoff
@@ -359,7 +359,7 @@ def get_batch(batch_size=256, max_len=K):
             state_masks[-1] = np.concatenate([np.zeros((1, max_len - tlen, state_dim)), state_masks[-1]], axis=1)
             a[-1] = np.concatenate([np.ones((1, max_len - tlen, act_dim)) * 0., a[-1]], axis=1)
             r[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), r[-1]], axis=1)
-            rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
+            rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1)
             timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
             mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
 
@@ -489,12 +489,13 @@ def train_iteration(num_steps, iter_num=0, print_logs=False, eval_fns=[], batch_
         return logs
 
 # %%
-max_iters = 10
-num_steps_per_iter = 10000
+max_iters = 20
+num_steps_per_iter = 5000
 
 # %%
+batch_size=64
 for i in range(max_iters):
-    output = train_iteration(num_steps=num_steps_per_iter, iter_num=i+1, print_logs=True,batch_size=4)
+    output = train_iteration(num_steps=num_steps_per_iter, iter_num=i+1, print_logs=True,batch_size=batch_size)
 
 # %%
 output
@@ -508,6 +509,7 @@ print("Number of params", params)
 policies = [None,None]
 wins=[0,0]
 n_games = 1000
+n_games=200
 
 # %%
 model.eval()
@@ -543,8 +545,10 @@ def state_list_to_tensor(state_list):
 
 
 # %%
-eval_horizon = 20
-target_return_value = np.max(returns) / scale
+eval_horizon = K
+#target_return_value = np.max(returns) / scale
+target_return_value = np.max(returns) 
+
 softmax = torch.nn.Softmax()
 # Simulate n_names times
 for i in range(n_games):
