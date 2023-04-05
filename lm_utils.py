@@ -3,6 +3,7 @@ import random
 import torch
 import numpy as np
 
+# Utilities for lm
 
 def score_response(model, tokenizer, query, response, device):
     # encode a query
@@ -87,7 +88,7 @@ def run_games(env, model, tokenizer, device, n_games=1, mode_0='random', mode_1=
 
         # get reward for each player from game outcome
         win_reward = 1.0
-        lose_rewad = 0.1
+        lose_rewad = 0.0
         if info['winning_player'] == 0:
             player_0_wins += 1
             reward_0 = win_reward

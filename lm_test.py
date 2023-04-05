@@ -1,9 +1,9 @@
-from deck import *
-from game import *
-from player import *
-from phases import Phases
+from open_mtg_env.deck import *
+from open_mtg_env.game import *
+from open_mtg_env.player import *
+from open_mtg_env.phases import Phases
 import copy
-from env import MtgEnv
+from open_mtg_env.env import MtgEnv
 import random
 
 from dataclasses import dataclass, field

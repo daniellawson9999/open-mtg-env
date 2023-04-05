@@ -1,10 +1,12 @@
-import mcts_env as mcts
-from deck import *
-from game import *
-from player import *
-from phases import Phases
+from open_mtg_env import mcts_env as mcts
+from open_mtg_env.deck import *
+from open_mtg_env.game import *
+from open_mtg_env.player import *
+from open_mtg_env.phases import Phases
 
-from env import MtgEnv
+from open_mtg_env.env import MtgEnv
+
+# Testing MCTS over new environment class
 
 env = MtgEnv(get_8ed_core_gold_deck, 'Gold0', get_8ed_core_gold_deck, 'Gold1')
 n_games = 10
