@@ -10,16 +10,27 @@ from open_mtg_env import mcts_env as mcts
 def score_response(model, tokenizer, query, response, device):
     # encode a query
     input_txt = query + response
-    input_tensor = tokenizer.encode(input_txt, return_tensors="pt").to(device)
+    inputs = tokenizer(input_txt, return_offsets_mapping=True)
+    input_tensor = torch.tensor(inputs['input_ids']).unsqueeze(0).to(device)
+    #input_ids = inputs['input_ids']
+    #np_ids = np.array(input_ids)
+    offset_map = inputs['offset_mapping']
+    first_index, last_index = zip(*offset_map)
+    last_index = np.array(last_index)
+    target_str = "best:"
+    start_of_output = input_txt.index(target_str) + len(target_str)
+    #offset_map = input_tensor.offset_mapping()[0]
     # TODO, update to only score after query
-    raise Exception('update')
-
+    
     # get model output, and then logits
     output = model(input_tensor)
     logits = output[0][0]
     input_tensor = input_tensor[0]
     score = 0
     for i in range(len(input_tensor)):
+        if last_index[i] < start_of_output:
+            continue
+        #print(i)
         score += logits[i][input_tensor[i]].item()
     return score
 

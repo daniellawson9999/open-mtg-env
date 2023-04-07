@@ -17,7 +17,7 @@ import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training
 from tqdm import tqdm
-from transformers import AutoTokenizer, HfArgumentParser, pipeline, Trainer, TrainingArguments, logging, AutoModelForCausalLM
+from transformers import AutoTokenizer, HfArgumentParser, pipeline, Trainer, TrainingArguments, logging, AutoModelForCausalLM,TrainerCallback
 
 #from trl import AutoModelForCausalLM, set_seed
 from trl.core import LengthSampler, respond_to_batch
@@ -150,7 +150,33 @@ def main(args):
     # create trainer
     trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset)
 
+    # add custom eval callback for running games every eval_freq steps
+    eval_freq = 2 #1
+    games_per_eval = 10
+    # eval_freq = 1
+    # games_per_eval = 1
+
+    class EvaluateGameCallback(TrainerCallback):
+        def __init__(self, model, tokenizer, env, args, eval_freq=10, games_per_eval=5):
+            self.env = env
+            self.args = args
+            self.eval_freq = eval_freq
+            self.games_per_eval = games_per_eval
+            self.model = model
+            self.tokenizer = tokenizer
+        def on_step_end(self, args, state, control, **kwargs):
+            if state.global_step % self.eval_freq == 0:
+                queries, actions, rewards, player_0_wins, player_1_wins = run_games(env, self.model, self.tokenizer, args.device, n_games=self.games_per_eval, mode_0='lm', mode_1='mcts', lm_sample=False, print_state=False, depth=self.args.depth)
+                print(f"LM vs MCTS depth {self.args.depth}")
+                print("Player 0 wins: ", player_0_wins)
+                print("Player 1 wins: ", player_1_wins)
+
+
+
+    #trainer.add_callback(EvaluateGameCallback(model, tokenizer, env, args, eval_freq=eval_freq, games_per_eval=games_per_eval))
+
     trainer.train()
+    import pdb; pdb.set_trace()
 
     # eval model
     queries, actions, rewards, player_0_wins, player_1_wins = run_games(env, model, tokenizer, args.device, n_games=args.eval_games, mode_0='lm', mode_1='mcts', lm_sample=False, print_state=False, depth=args.depth)
@@ -163,7 +189,6 @@ def main(args):
     print("Player 0 wins: ", player_0_wins)
     print("Player 1 wins: ", player_1_wins)
 
-    #import pdb; pdb.set_trace()
 
 
 if __name__ == '__main__':
